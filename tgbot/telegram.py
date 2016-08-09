@@ -1,4 +1,5 @@
 import requests
+import dialogue
 
 from async.workers import WorkerPool
 
@@ -36,24 +37,29 @@ class BotAPI(object):
     def get_updates(self, **kwargs):
         return self.request("getUpdates", "post", kwargs)
 
-    def send_message(self, **kwargs):
-        return self.request("sendMessage", "post", kwargs)
+    def forward_message(self, pass_api = None, **kwargs):
+        return dialogue.Message.build(self.request("forwardMessage", "post", kwargs)["result"], pass_api if pass_api != None else pass_api)
 
-class AsyncBotAPI(BotAPI):
+    def send_message(self, pass_api = None, **kwargs):
+        return dialogue.Message.build(self.request("sendMessage", "post", kwargs)["result"], pass_api if pass_api != None else pass_api)
+
+    def edit_message_text(self, pass_api = None, **kwargs):
+        return dialogue.Message.build(self.request("editMessageText", "post", kwargs)["result"], pass_api if pass_api != None else pass_api)
+
+    def edit_message_caption(self, pass_api = None, **kwargs):
+        return dialogue.Message.build(self.request("editMessageCaption", "post", kwargs)["result"], pass_api if pass_api != None else pass_api)
+
+    def edit_message_reply_markup(self, pass_api = None, **kwargs):
+        return dialogue.Message.build(self.request("editMessageReplyMarkup", "post", kwargs)["result"], pass_api if pass_api != None else pass_api)
+
+
+class AsyncBotAPI(object):
     def __init__(self, token, worker_pool):
+        self.token = token
         self.worker_pool = worker_pool
-        BotAPI.__init__(self, token)
+        self._api = BotAPI(token)
 
-    def async_requester(self, method_name, method, params, callback):
-        retval = BotAPI.request(self, method_name, method, params)
-        if callback != None: callback(retval)
 
-    def request(self, method_name, method = "post", params = {}):
-        callback = params["callback"] if "callback" in params else None
-        async = params["async"] if "async" in params else True
-        del params["callback"]
-        del params["async"]
-        if async:
-            self.worker_pool.apply(self.async_requester, [method_name, method, params, callback])
-        else:
-            return BotAPI.request(self, method_name, method, params)
+    def __getattr__(self, key):
+        if not hasattr(self._api, key): raise NameError()
+        return self.worker_pool.asyncify(getattr(self._api, key), pass_api = self)

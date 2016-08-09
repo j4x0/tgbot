@@ -31,7 +31,7 @@ class Chat(TgEntity):
         })
         self.api = api
 
-    def send_message(self, text = "", parse_mode = None, disable_web_page_review = False, disable_notification = False, reply_to_message = None, reply_markup = None, async = True, callback = None):
+    def send_message(self, text = "", parse_mode = None, disable_web_page_review = False, disable_notification = False, reply_to_message = None, reply_markup = None):
         if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
         return self.api.send_message(
             chat_id = self.id,
@@ -40,9 +40,7 @@ class Chat(TgEntity):
             disable_web_page_review = disable_web_page_review,
             disable_notification = disable_notification,
             reply_to_message = reply_to_message,
-            reply_markup = reply_markup.object() if reply_markup != None else None,
-            async = async,
-            callback = callback
+            reply_markup = reply_markup.json() if reply_markup != None else None
         )
 
     @classmethod
@@ -61,7 +59,7 @@ class User(TgEntity):
         })
 
 class Message(TgEntity):
-    def __init__(self):
+    def __init__(self, api):
         TgEntity.__init__(self, {
             "id":                       ("message_id", None),
             "date":                     ("date", 0),
@@ -76,13 +74,67 @@ class Message(TgEntity):
             "migrate_to_chat_id":       ("migrate_to_chat_id", None),
             "migrate_from_chat_id":     ("migrate_from_chat_id", None),
         })
+        self.api = api
 
     def is_service_message(self):
         return self.delete_chat_photo or self.group_chat_created or self.supergroup_chat_created or self.channel_chat_created or self.migrate_to_chat_id != None or self.migrate_from_chat_id != None
 
+    def _update_msg_cb(self, message):
+        self.text = message.text
+        self.caption = message.caption
+
+    def forward(self, to_chat_id, disable_notification = False):
+        if self.api == None or self.id == None:
+            raise Exception("This message is not sent")
+        return self.api.forward_message(
+            chat_id = self.to_chat_id,
+            from_chat_id = self.chat_id,
+            disable_notification = disable_notification,
+            message_id = self.id
+        )
+
+    def edit_text(self, text, parse_mode = None, reply_markup = None):
+        if self.api == None or self.id == None:
+            raise Exception("This message is not sent")
+        return self.api.edit_message_text(
+            chat_id = self.chat_id,
+            message_id = self.id,
+            text = text,
+            parse_mode = parse_mode,
+            reply_markup = reply_markup.json() if reply_markup != None else None
+        ).then(self._update_msg_cb)
+
+    def edit_caption(self, caption, reply_markup = None):
+        if self.api == None or self.id == None:
+            raise Exception("This message is not sent")
+        return self.api.edit_message_caption(
+            chat_id = self.chat_id,
+            message_id = self.id,
+            caption = caption,
+            reply_markup = reply_markup.json() if reply_markup != None else None
+        ).then(self._update_msg_cb)
+
+    def edit_reply_markup(self, reply_markup):
+        if self.api == None or self.id == None:
+            raise Exception("This message is not sent")
+        return self.api.edit_message_reply_markup(
+            chat_id = self.chat_id,
+            message_id = self.id,
+            reply_markup = reply_markup.json()
+        )
+
     def _set_props(self, values = {}):
         TgEntity._set_props(self, values)
-        self.forwarded_from = User.build(values["forwarded_from"]) if "forwarded_from" in values else None
+        self.chat_id = values["chat"]["id"] if "chat" in values else None
+        self.user_id = values["from"]["id"] if "from" in values else None
+
+        self.forward_from = User.build(values["forward_from"]) if "forward_from" in values else None
         self.forward_from_chat = Chat.buid(values["forward_from_chat"]) if "forward_from_chat" in values else None
         self.reply_to_message = Message.build(values["reply_to_message"]) if "reply_to_message" in values else None
         #TODO other entities
+
+    @classmethod
+    def build(cls, data, api = None):
+        entity = cls(api)
+        entity._set_props(data)
+        return entity

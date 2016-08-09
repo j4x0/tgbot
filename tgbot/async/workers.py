@@ -3,6 +3,48 @@ import Queue
 
 from tgbot import logging
 
+class Promise(object):
+    def __init__(self):
+        self.condition = threading.Condition()
+        self.retval = None
+        self.finished = False
+
+        self.callbacks_lock = threading.Lock()
+        self.callbacks = []
+
+    def acquire(self):
+        self.condition.acquire()
+
+    def then(self, callback):
+        if self.finished:
+            callback(self.retval)
+        self.callbacks_lock.acquire()
+        self.callbacks.append(callback)
+        self.callbacks_lock.release()
+        return self
+
+    def finalize(self, retval):
+        self.finished = True
+        self.retval = retval
+
+        self.callbacks_lock.acquire()
+        for callback in self.callbacks:
+            callback(retval)
+        self.callbacks_lock.release()
+
+        # Notify other threads
+        self.condition.notify_all()
+        self.condition.release()
+
+    def err(self, exception):
+        self.condition.notify_all()
+        self.condition.release()
+
+    def wait(self):
+        self.acquire()
+        self.condition.wait() #when notified & lock released
+        return self.retval
+
 class Worker(threading.Thread):
     def __init__(self, q):
         threading.Thread.__init__(self)
@@ -12,12 +54,15 @@ class Worker(threading.Thread):
     def run(self):
         while self.do_run:
             try:
-                fn, args, kwargs = self.q.get(True, 0.5)
+                fn, p, args, kwargs = self.q.get(True, 0.5)
             except Queue.Empty: continue
             try:
-                fn(*args, **kwargs)
+                p.acquire()
+                retval = fn(*args, **kwargs)
+                p.finalize(retval)
             except Exception as e:
                 logging.error("Exception inside worker thread:\n" + str(e))
+                p.err(e)
 
     def stop(self):
         self.do_run = False
@@ -28,7 +73,15 @@ class WorkerPool(object):
         self.workers = [Worker(self.q) for i in range(count - 1)]
 
     def apply(self, fn, args = [], kwargs = {}):
-        self.q.put((fn, args, kwargs))
+        p = Promise()
+        self.q.put((fn, p, args, kwargs))
+        return p
+
+    def asyncify(self, fn, **override_kwargs):
+        def async_applier(*args, **kwargs):
+            kwargs.update(override_kwargs)
+            return self.apply(fn, args, kwargs)
+        return async_applier
 
     def start(self):
         for worker in self.workers:
