@@ -4,10 +4,12 @@ import threading
 import Queue
 import math
 
-from processes import *
-from workers import WorkerPool
+from async.processes import ReceiveProcess
+from async.workers import WorkerPool
 import events
 import logging
+
+import dialogue
 
 class Bot(object):
     def __init__(self, token):
@@ -23,10 +25,37 @@ class Bot(object):
         self.updates = multiprocessing.Queue()
         self.receiver = ReceiveProcess(token, self.updates)
 
+        self.chats = {}
+        self.users = {}
+
 
     def process_update(self, update):
-        if update.message != None:
-            self.on_message.emit(update.message)
+        if update["message"] != None:
+            message_data = update["message"]
+            self.on_message.emit(
+                self.get_chat_from_message_data(message_data),
+                self.get_user_from_message_data(message_data),
+                dialogue.Message.build(message_data)
+            )
+
+    def get_user_from_message_data(self, message_data):
+        if "from" not in message_data: return None
+        user_data = message_data["from"]
+        id = user_data["id"]
+        if id in self.users:
+            self.users[id].update_properties(user_data)
+            return self.users[id]
+        self.users[id] = dialogue.User.build(user_data)
+        return self.users[id]
+
+    def get_chat_from_message_data(self, message_data):
+        chat_data = message_data["chat"]
+        id = chat_data["id"]
+        if id in self.chats:
+            self.chats[id].update_properties(chat_data)
+            return self.chats[id]
+        self.chats[id] = dialogue.Chat.build(chat_data, self.api)
+        return self.chats[id]
 
     def process_updates(self):
         while True:

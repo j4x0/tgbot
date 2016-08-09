@@ -1,9 +1,9 @@
 import multiprocessing
 import time
-import logging
 import signal
 
-from telegram import BotAPI
+from tgbot import logging
+from tgbot.telegram import BotAPI
 
 class ReceiveProcess(multiprocessing.Process):
     def __init__(self, token, q):
@@ -15,9 +15,10 @@ class ReceiveProcess(multiprocessing.Process):
 
     def fetch_updates(self):
         logging.log("Fetching updates")
-        updates = self.api.get_updates(offset = self.offset, timeout = 120) if self.offset != None else self.api.get_updates(timeout = 120)
+        response = self.api.get_updates(offset = self.offset, timeout = 120) if self.offset != None else self.api.get_updates(timeout = 120)
+        updates = response["result"]
         if len(updates) > 0:
-            self.offset = updates[len(updates) - 1].id + 1
+            self.offset = updates[len(updates) - 1]["update_id"] + 1
         for update in updates: self.q.put(update)
 
     def run(self):
@@ -25,7 +26,7 @@ class ReceiveProcess(multiprocessing.Process):
         try:
             while True:
                 self.fetch_updates()
-        except Exception as  e:
-            logging.error("An exception occurred inside recv process:\n\t" + str(e))
+        except Exception as e:
+            logging.error("An exception occurred inside recv process:\n" + str(e))
         finally:
             self.q.put(None)

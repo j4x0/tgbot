@@ -1,6 +1,7 @@
 import threading
 import Queue
-import logging
+
+from tgbot import logging
 
 class Worker(threading.Thread):
     def __init__(self, q):
@@ -16,7 +17,7 @@ class Worker(threading.Thread):
             try:
                 fn(*args, **kwargs)
             except Exception as e:
-                logging.error("Exception inside worker thread:\n\t" + str(e))
+                logging.error("Exception inside worker thread:\n" + str(e))
 
     def stop(self):
         self.do_run = False
@@ -26,7 +27,7 @@ class WorkerPool(object):
         self.q = Queue.Queue()
         self.workers = [Worker(self.q) for i in range(count - 1)]
 
-    def apply(self, fn, args, kwargs):
+    def apply(self, fn, args = [], kwargs = {}):
         self.q.put((fn, args, kwargs))
 
     def start(self):

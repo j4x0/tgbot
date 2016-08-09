@@ -15,4 +15,4 @@ class AsyncEvent(object):
 
 class MessageEvent(AsyncEvent):
     def match(self, pattern, callback):
-        self.subscribe(lambda message: message.text != None and re.match(pattern, message.text) != None, callback)
+        self.subscribe(lambda chat, user, message: True, callback) #message.text != None and re.match(pattern, message.text) != None, callback)
