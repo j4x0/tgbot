@@ -6,10 +6,10 @@ import math
 
 from async.processes import ReceiveProcess
 from async.workers import WorkerPool
+from entities import dialogue
 import events
 import logging
 
-import dialogue
 
 class Bot(object):
     def __init__(self, token):
@@ -20,22 +20,49 @@ class Bot(object):
 
         self.api = telegram.AsyncBotAPI(token, self.api_worker_pool)
 
-        self.on_message = events.MessageEvent(self.events_worker_pool)
-
         self.updates = multiprocessing.Queue()
         self.receiver = ReceiveProcess(token, self.updates)
 
         self.chats = {}
         self.users = {}
 
+        self.init_events()
+
+    def init_events(self):
+        self.on_message = events.MessageEvent(self.events_worker_pool)
+        self.on_audio = events.AsyncEvent(self.events_worker_pool)
+        self.on_document = events.AsyncEvent(self.events_worker_pool)
+        self.on_photo = events.AsyncEvent(self.events_worker_pool)
+        self.on_sticker = events.AsyncEvent(self.events_worker_pool)
+        self.on_video = events.AsyncEvent(self.events_worker_pool)
+        self.on_voice = events.AsyncEvent(self.events_worker_pool)
+
+
+    def process_message(self, chat, user, message):
+        if message.is_audio():
+            self.on_audio.emit(chat, user, message)
+        elif message.is_document():
+            self.on_document.emit(chat, user, message)
+        elif message.is_photo():
+            self.on_photo.emit(chat, user, message)
+        elif message.is_sticker():
+            self.on_sticker.emit(chat, user, message)
+        elif message.is_video():
+            self.on_video.emit(chat, user, message)
+        elif message.is_voice():
+            self.on_voice.emit(chat, user, message)
+        elif message.is_service_message():
+            pass #TODO
+        else:
+            self.on_message.emit(chat, user, message)
 
     def process_update(self, update):
         if update["message"] != None:
             message_data = update["message"]
-            self.on_message.emit(
+            self.process_message(
                 self.get_chat_from_message_data(message_data),
                 self.get_user_from_message_data(message_data),
-                dialogue.Message.build(message_data)
+                dialogue.Message.build(message_data, self.api)
             )
 
     def get_user_from_message_data(self, message_data):
@@ -63,7 +90,7 @@ class Bot(object):
                 update = self.updates.get(True, 5)
             except Queue.Empty:
                 continue
-            if update == None: break # Receive process sent stop signal
+            if update == None: break # Receive process sent stop signa
             self.process_update(update)
 
     def start(self):

@@ -1,6 +1,6 @@
 import requests
-import dialogue
 
+from entities import dialogue
 from async.workers import WorkerPool
 
 class APIException(Exception):
@@ -16,9 +16,11 @@ class APIException(Exception):
 
 class BotAPI(object):
     ENDPOINT_URL = "https://api.telegram.org/bot{0}/{1}"
+    DOWNLOAD_URL = "https://api.telegram.org/file/bot{0}/{1}"
 
     def __init__(self, token):
         self.token = token
+        self.passed_api = None
 
     def request(self, method_name, method="post", params = {}):
         url = self.ENDPOINT_URL.format(self.token, method_name)
@@ -38,28 +40,45 @@ class BotAPI(object):
         return self.request("getUpdates", "post", kwargs)
 
     def forward_message(self, pass_api = None, **kwargs):
-        return dialogue.Message.build(self.request("forwardMessage", "post", kwargs)["result"], pass_api if pass_api != None else pass_api)
+        return dialogue.Message.build(self.request("forwardMessage", "post", kwargs)["result"], self.passed_api)
 
     def send_message(self, pass_api = None, **kwargs):
-        return dialogue.Message.build(self.request("sendMessage", "post", kwargs)["result"], pass_api if pass_api != None else pass_api)
+        return dialogue.Message.build(self.request("sendMessage", "post", kwargs)["result"], self.passed_api)
 
     def edit_message_text(self, pass_api = None, **kwargs):
-        return dialogue.Message.build(self.request("editMessageText", "post", kwargs)["result"], pass_api if pass_api != None else pass_api)
+        return dialogue.Message.build(self.request("editMessageText", "post", kwargs)["result"], self.passed_api)
 
     def edit_message_caption(self, pass_api = None, **kwargs):
-        return dialogue.Message.build(self.request("editMessageCaption", "post", kwargs)["result"], pass_api if pass_api != None else pass_api)
+        return dialogue.Message.build(self.request("editMessageCaption", "post", kwargs)["result"], self.passed_api)
 
     def edit_message_reply_markup(self, pass_api = None, **kwargs):
-        return dialogue.Message.build(self.request("editMessageReplyMarkup", "post", kwargs)["result"], pass_api if pass_api != None else pass_api)
+        return dialogue.Message.build(self.request("editMessageReplyMarkup", "post", kwargs)["result"], self.api_pass)
 
+    def download_file(self, file_id, name):
+        file_data = self.request("getFile", "post", {"file_id": file_id})["result"]
+        if "file_path" not in file_data:
+            raise APIException("File expired")
+
+        parts = file_data["file_path"].split(".")
+        ext = parts[-1] if len(parts) > 0 else ""
+        target_path = name + "." + ext
+
+        url = self.DOWNLOAD_URL.format(self.token, file_data["file_path"])
+        response = requests.get(url, stream = True)
+        with open(target_path, "wb") as fp:
+            for chunk in response.iter_content(chunk_size = 1024):
+                fp.write(chunk)
+        response.close()
+
+        return target_path
 
 class AsyncBotAPI(object):
     def __init__(self, token, worker_pool):
         self.token = token
         self.worker_pool = worker_pool
         self._api = BotAPI(token)
-
+        self._api.passed_api = self #Pass this object as API to the instantiated entities
 
     def __getattr__(self, key):
         if not hasattr(self._api, key): raise NameError()
-        return self.worker_pool.asyncify(getattr(self._api, key), pass_api = self)
+        return self.worker_pool.asyncify(getattr(self._api, key))
