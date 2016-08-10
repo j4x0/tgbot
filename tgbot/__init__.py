@@ -7,18 +7,25 @@ import math
 from async.processes import ReceiveProcess
 from async.workers import WorkerPool
 from entities import dialogue
+from telegram import *
 import events
 import logging
 
 
 class Bot(object):
-    def __init__(self, token):
+    def __init__(self, token, requests_per_second = 5):
         self.token = token
+        self.limited_api = requests_per_second > 0
 
+        # Initialize 40 worker threads
         self.events_worker_pool = WorkerPool(20)
         self.api_worker_pool = WorkerPool(20)
 
-        self.api = telegram.AsyncBotAPI(token, self.api_worker_pool)
+        # Initialize the API object, use a limited bot api if requests_per_second > 0
+        if self.limited_api:
+            self.api = AsyncifiedAPI(LimitedBotAPI(self.token, requests_per_second), self.api_worker_pool)
+        else:
+            self.api = AsyncifiedAPI(BotAPI(self.token), self.api_worker_pool)
 
         self.updates = multiprocessing.Queue()
         self.receiver = ReceiveProcess(token, self.updates)
@@ -95,9 +102,15 @@ class Bot(object):
 
     def start(self):
         logging.info("Bot is starting")
+
+        if self.limited_api:
+            self.api.underlying_api().start()
+
         self.receiver.start()
+
         self.events_worker_pool.start()
         self.api_worker_pool.start()
+
         try:
             self.process_updates()
         except KeyboardInterrupt: pass
@@ -106,7 +119,12 @@ class Bot(object):
 
     def stop(self):
         logging.info("Bot is stopping")
+
+        if self.limited_api:
+            self.api.underlying_api().stop()
+
         self.receiver.terminate()
         self.receiver.join()
+
         self.events_worker_pool.stop()
         self.api_worker_pool.stop()

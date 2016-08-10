@@ -40,7 +40,7 @@ class Promise(object):
         self.condition.notify_all()
         self.condition.release()
 
-    def wait(self):
+    def await(self):
         self.acquire()
         self.condition.wait() #when notified & lock released
         return self.retval
@@ -50,6 +50,10 @@ class Worker(threading.Thread):
         threading.Thread.__init__(self)
         self.q = q
         self.do_run = True
+
+    def start(self):
+        self.do_run = True
+        threading.Thread.start(self)
 
     def run(self):
         while self.do_run:

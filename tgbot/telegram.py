@@ -2,6 +2,7 @@ import requests
 
 from entities import dialogue
 from async.workers import WorkerPool
+from async.timed import TimedSignaller
 
 class APIException(Exception):
     def __init__(self, reason, request_url = None):
@@ -52,7 +53,7 @@ class BotAPI(object):
         return dialogue.Message.build(self.request("editMessageCaption", "post", kwargs)["result"], self.passed_api)
 
     def edit_message_reply_markup(self, pass_api = None, **kwargs):
-        return dialogue.Message.build(self.request("editMessageReplyMarkup", "post", kwargs)["result"], self.api_pass)
+        return dialogue.Message.build(self.request("editMessageReplyMarkup", "post", kwargs)["result"], self.passed_api)
 
     def download_file(self, file_id, name):
         file_data = self.request("getFile", "post", {"file_id": file_id})["result"]
@@ -72,12 +73,30 @@ class BotAPI(object):
 
         return target_path
 
-class AsyncBotAPI(object):
-    def __init__(self, token, worker_pool):
-        self.token = token
+class LimitedBotAPI(BotAPI):
+    def __init__(self, token, requests_per_second = 5):
+        BotAPI.__init__(self, token)
+        self.signaller = TimedSignaller(1. / requests_per_second)
+
+    def request(self, method_name, method = "post", params = {}):
+        self.signaller.wait()
+        return BotAPI.request(self, method_name, method, params)
+
+    def start(self):
+        self.signaller.start()
+
+    def stop(self):
+        self.signaller.stop()
+
+class AsyncifiedAPI(object):
+    def __init__(self, api, worker_pool):
         self.worker_pool = worker_pool
-        self._api = BotAPI(token)
+        self._api = api
+        self.token = self._api.token
         self._api.passed_api = self #Pass this object as API to the instantiated entities
+
+    def underlying_api(self):
+        return self._api
 
     def __getattr__(self, key):
         if not hasattr(self._api, key): raise NameError()
