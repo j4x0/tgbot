@@ -13,17 +13,16 @@ import logging
 
 
 class Bot(object):
-    def __init__(self, token, requests_per_second = 5):
+    def __init__(self, token, limited_api = True, requests_per_second = 10, messages_to_chat_per_second = 1):
         self.token = token
-        self.limited_api = requests_per_second > 0
+        self._limited_api = limited_api
 
         # Initialize 40 worker threads
         self.events_worker_pool = WorkerPool(20)
         self.api_worker_pool = WorkerPool(20)
 
-        # Initialize the API object, use a limited bot api if requests_per_second > 0
-        if self.limited_api:
-            self.api = AsyncifiedAPI(LimitedBotAPI(self.token, requests_per_second), self.api_worker_pool)
+        if self._limited_api:
+            self.api = AsyncifiedAPI(LimitedBotAPI(self.token, requests_per_second, messages_to_chat_per_second), self.api_worker_pool)
         else:
             self.api = AsyncifiedAPI(BotAPI(self.token), self.api_worker_pool)
 
@@ -43,7 +42,8 @@ class Bot(object):
         self.on_sticker = events.AsyncEvent(self.events_worker_pool)
         self.on_video = events.AsyncEvent(self.events_worker_pool)
         self.on_voice = events.AsyncEvent(self.events_worker_pool)
-
+        self.on_location = events.AsyncEvent(self.events_worker_pool)
+        self.on_venue = events.AsyncEvent(self.events_worker_pool)
 
     def process_message(self, chat, user, message):
         if message.is_audio():
@@ -60,6 +60,10 @@ class Bot(object):
             self.on_voice.emit(chat, user, message)
         elif message.is_service_message():
             pass #TODO
+        elif message.is_location():
+            self.on_location.emit(chat, user, message)
+        elif message.is_venue():
+            self.on_venue.emit(chat, user, message)
         else:
             self.on_message.emit(chat, user, message)
 
@@ -103,7 +107,7 @@ class Bot(object):
     def start(self):
         logging.info("Bot is starting")
 
-        if self.limited_api:
+        if self._limited_api:
             self.api.underlying_api().start()
 
         self.receiver.start()
@@ -120,7 +124,7 @@ class Bot(object):
     def stop(self):
         logging.info("Bot is stopping")
 
-        if self.limited_api:
+        if self._limited_api:
             self.api.underlying_api().stop()
 
         self.receiver.terminate()

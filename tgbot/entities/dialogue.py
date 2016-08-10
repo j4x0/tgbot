@@ -1,5 +1,6 @@
-from tgbot.entities import RequestingEntity, Entity
+from tgbot.entities import *
 from tgbot.entities.files import *
+from tgbot.entities.location import *
 
 class Chat(RequestingEntity):
     def __init__(self, api):
@@ -33,6 +34,19 @@ class User(Entity):
             "username":     ("username", None)
         })
 
+class MessageEntity(Entity):
+    def __init__(self):
+        Entity.__init__(self, {
+            "type":     ("type", None),
+            "offset":   ("offset", None),
+            "length":   ("length", None),
+            "url":      ("url", None),
+        })
+
+    def _set_props(self, values = {}):
+        Entity._set_props(self, values)
+        self.user = User.build(values["user"]) if "user" in values else None
+
 class Message(RequestingEntity):
     def __init__(self, api):
         RequestingEntity.__init__(self, {
@@ -59,7 +73,7 @@ class Message(RequestingEntity):
         if self.api == None or self.id == None:
             raise Exception("This message is not sent")
         return self.api.forward_message(
-            chat_id = self.to_chat_id,
+            chat_id = to_chat_id,
             from_chat_id = self.chat_id,
             disable_notification = disable_notification,
             message_id = self.id
@@ -122,6 +136,12 @@ class Message(RequestingEntity):
     def is_voice(self):
         return self.voice != None
 
+    def is_location(self):
+        return self.location != None
+
+    def is_venue(self):
+        return self.venue != None
+
     def _set_props(self, values = {}):
         RequestingEntity._set_props(self, values)
         self.chat_id = values["chat"]["id"] if "chat" in values else None
@@ -130,7 +150,7 @@ class Message(RequestingEntity):
         self.forward_from = User.build(values["forward_from"]) if "forward_from" in values else None
         self.forward_from_chat = Chat.buid(values["forward_from_chat"]) if "forward_from_chat" in values else None
         self.reply_to_message = Message.build(values["reply_to_message"], self.api) if "reply_to_message" in values else None
-        #self.entities
+        self.entities = [MessageEntity.build(me_data) for me_data in values["entities"]] if "entities" in values else []
 
         self.audio = Audio.build(values["audio"], self.api) if "audio" in values else None
         self.document = Document.build(values["document"], self.api) if "document" in values else None
@@ -138,3 +158,6 @@ class Message(RequestingEntity):
         self.sticker = Sticker.build(values["sticker"], self.api) if "sticker" in values else None
         self.video = Video.build(values["video"], self.api) if "video" in values else None
         self.voice = Voice.build(values["voice"], self.api) if "voice" in values else None
+
+        self.location = Location.build(values["location"]) if "location" in values else None
+        self.venue = Venue.build(values["venue"]) if "venue" in values else None

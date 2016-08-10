@@ -1,8 +1,12 @@
+from os import path
 import requests
+import threading
 
-from entities import dialogue
+from entities.dialogue import *
+from entities.files import *
+
 from async.workers import WorkerPool
-from async.timed import TimedSignaller
+from async.timed import Signaller
 
 class APIException(Exception):
     def __init__(self, reason, request_url = None):
@@ -23,12 +27,21 @@ class BotAPI(object):
         self.token = token
         self.passed_api = None
 
-    def request(self, method_name, method="post", params = {}):
+    def request(self, method_name, method="post", params = {}, file_path = None):
         url = self.ENDPOINT_URL.format(self.token, method_name)
         payload = {}
         for k, v in params.iteritems():
             if v != None: payload[k] = v
-        response = requests.request(method, url, data = payload, timeout = 600)
+        files = {}
+        fp = None
+        if file_path != None:
+            fp = open(file_path)
+            files[path.basename(file_path)] = fp
+        try:
+            response = requests.request(method, url, data = payload, timeout = 600, files = files)
+        finally:
+            if fp != None:
+                fp.close()
         try:
             data = response.json()
         except:
@@ -41,19 +54,26 @@ class BotAPI(object):
         return self.request("getUpdates", "post", kwargs)
 
     def forward_message(self, pass_api = None, **kwargs):
-        return dialogue.Message.build(self.request("forwardMessage", "post", kwargs)["result"], self.passed_api)
+        return Message.build(self.request("forwardMessage", "post", kwargs)["result"], self.passed_api)
 
     def send_message(self, pass_api = None, **kwargs):
-        return dialogue.Message.build(self.request("sendMessage", "post", kwargs)["result"], self.passed_api)
+        return Message.build(self.request("sendMessage", "post", kwargs)["result"], self.passed_api)
 
     def edit_message_text(self, pass_api = None, **kwargs):
-        return dialogue.Message.build(self.request("editMessageText", "post", kwargs)["result"], self.passed_api)
+        return Message.build(self.request("editMessageText", "post", kwargs)["result"], self.passed_api)
 
     def edit_message_caption(self, pass_api = None, **kwargs):
-        return dialogue.Message.build(self.request("editMessageCaption", "post", kwargs)["result"], self.passed_api)
+        return Message.build(self.request("editMessageCaption", "post", kwargs)["result"], self.passed_api)
 
     def edit_message_reply_markup(self, pass_api = None, **kwargs):
-        return dialogue.Message.build(self.request("editMessageReplyMarkup", "post", kwargs)["result"], self.passed_api)
+        return Message.build(self.request("editMessageReplyMarkup", "post", kwargs)["result"], self.passed_api)
+
+    '''def send_photo(self, pass_api = None, **kwargs):
+        if "photo" not in kwargs:
+            raise KeyError("'photo' was not passed to 'send_photo'")
+        file_path = kwargs["photo"]
+        del kwargs["photo"]
+        return Message.build(self.request("sendPhoto", "post", kwargs)["result"], self.passed_api)'''
 
     def download_file(self, file_id, name):
         file_data = self.request("getFile", "post", {"file_id": file_id})["result"]
@@ -74,13 +94,40 @@ class BotAPI(object):
         return target_path
 
 class LimitedBotAPI(BotAPI):
-    def __init__(self, token, requests_per_second = 5):
-        BotAPI.__init__(self, token)
-        self.signaller = TimedSignaller(1. / requests_per_second)
+    REQUEST_SIGNAL = 0
 
-    def request(self, method_name, method = "post", params = {}):
-        self.signaller.wait()
-        return BotAPI.request(self, method_name, method, params)
+    def __init__(self, token, requests_per_second = 5, messages_to_chat_per_second = 1):
+        BotAPI.__init__(self, token)
+        self.signaller = Signaller()
+        self.signaller.add_signal(self.REQUEST_SIGNAL, 1. / requests_per_second)
+        self._mstps = messages_to_chat_per_second
+
+        self.mutex = threading.Lock()
+        self.chat_signals_added = []
+
+    def request(self, method_name, method = "post", params = {}, file_path = None):
+        self.signaller.wait_for(self.REQUEST_SIGNAL)
+        return BotAPI.request(self, method_name, method, params, file_path)
+
+    def wait_till_chat_signal(self, chat_id):
+        self.mutex.acquire()
+        if chat_id not in self.chat_signals_added:
+            self.signaller.add_signal(chat_id, self._mstps)
+            self.chat_signals_added.append(chat_id)
+        self.mutex.release()
+        self.signaller.wait_for(chat_id)
+
+    def send_message(self, pass_api = None, **kwargs):
+        if "chat_id" not in kwargs:
+            raise KeyError("'chat_id' was not passed to 'send_message'")
+        self.wait_till_chat_signal(kwargs["chat_id"])
+        return BotAPI.send_message(self, pass_api, **kwargs)
+
+    def forward_message(self, pass_api = None, **kwargs):
+        if "chat_id" not in kwargs:
+            raise KeyError("'chat_id' was not passed to 'forward_message'")
+        self.wait_till_chat_signal(kwargs["chat_id"])
+        return BotAPI.forward_message(self, pass_api, **kwargs)
 
     def start(self):
         self.signaller.start()

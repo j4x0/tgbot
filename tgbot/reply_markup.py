@@ -38,6 +38,16 @@ class KeyboardButton(object):
             "request_location": self.request_location
         }
 
+class ReplyKeyboardHide(ReplyMarkup):
+    def __init__(self, selective = False):
+        self.selective = selective
+
+    def dict(self):
+        return {
+            "hide_keyboard": True,
+            "selective": self.selective
+        }
+
 class InlineKeyboardMarkup(ReplyMarkup):
     def __init__(self, buttons = []):
         self.buttons = buttons
@@ -64,3 +74,13 @@ class InlineKeyboardButton(object):
         if self.callback_data != None: obj["callback_data"] = self.callback_data
         if self.switch_inline_query != None: obj["switch_inline_query"] = self.switch_inline_query
         return obj
+
+class ForceReply(ReplyMarkup):
+    def __init__(self, selective = False):
+        self.selective = selective
+
+    def dict(self):
+        return {
+            "force_reply": True,
+            "selective": self.selective
+        }

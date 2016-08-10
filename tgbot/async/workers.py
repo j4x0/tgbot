@@ -3,46 +3,41 @@ import Queue
 
 from tgbot import logging
 
-class Promise(object):
+class Future(object):
     def __init__(self):
-        self.condition = threading.Condition()
-        self.retval = None
-        self.finished = False
+        self.finished = threading.Event()
+        self.mutex = threading.Lock()
 
-        self.callbacks_lock = threading.Lock()
+        self.retval = None
         self.callbacks = []
 
-    def acquire(self):
-        self.condition.acquire()
-
     def then(self, callback):
-        if self.finished:
+        if self.finished.is_set():
             callback(self.retval)
-        self.callbacks_lock.acquire()
+        self.mutex.acquire()
         self.callbacks.append(callback)
-        self.callbacks_lock.release()
+        self.mutex.release()
         return self
 
     def finalize(self, retval):
-        self.finished = True
+        # Atomic
         self.retval = retval
 
-        self.callbacks_lock.acquire()
+        self.mutex.acquire()
         for callback in self.callbacks:
             callback(retval)
-        self.callbacks_lock.release()
+        self.mutex.release()
 
         # Notify other threads
-        self.condition.notify_all()
-        self.condition.release()
+        self.finished.set()
 
     def err(self, exception):
-        self.condition.notify_all()
-        self.condition.release()
+        self.finished.set()
 
     def await(self):
-        self.acquire()
-        self.condition.wait() #when notified & lock released
+        while True:
+            if self.finished.wait(0.5):
+                break
         return self.retval
 
 class Worker(threading.Thread):
@@ -58,15 +53,14 @@ class Worker(threading.Thread):
     def run(self):
         while self.do_run:
             try:
-                fn, p, args, kwargs = self.q.get(True, 0.5)
+                fn, future, args, kwargs = self.q.get(True, 0.5)
             except Queue.Empty: continue
             try:
-                p.acquire()
                 retval = fn(*args, **kwargs)
-                p.finalize(retval)
+                future.finalize(retval)
             except Exception as e:
                 logging.error("Exception inside worker thread:\n" + str(e))
-                p.err(e)
+                future.err(e)
 
     def stop(self):
         self.do_run = False
@@ -77,9 +71,9 @@ class WorkerPool(object):
         self.workers = [Worker(self.q) for i in range(count - 1)]
 
     def apply(self, fn, args = [], kwargs = {}):
-        p = Promise()
-        self.q.put((fn, p, args, kwargs))
-        return p
+        future = Future()
+        self.q.put((fn, future, args, kwargs))
+        return future
 
     def asyncify(self, fn, **override_kwargs):
         def async_applier(*args, **kwargs):
