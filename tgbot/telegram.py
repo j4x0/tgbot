@@ -27,21 +27,24 @@ class BotAPI(object):
         self.token = token
         self.passed_api = None
 
-    def request(self, method_name, method="post", params = {}, file_path = None):
+    def request(self, method_name, method="post", params = {}):
         url = self.ENDPOINT_URL.format(self.token, method_name)
         payload = {}
-        for k, v in params.iteritems():
-            if v != None: payload[k] = v
         files = {}
-        fp = None
-        if file_path != None:
-            fp = open(file_path)
-            files[path.basename(file_path)] = fp
+        for k, v in params.iteritems():
+            if v == None: continue
+            if type(v) == file:
+                files[k] = v
+            else:
+                payload[k] = v
         try:
-            response = requests.request(method, url, data = payload, timeout = 600, files = files)
+            response = requests.request(method, url, params = payload, files = files, timeout = 600, headers = {"User-Agent": "tgbot"})
         finally:
-            if fp != None:
-                fp.close()
+            # Close all files
+            for v in files.values():
+                try:
+                    v.close()
+                except: pass
         try:
             data = response.json()
         except:
@@ -52,6 +55,12 @@ class BotAPI(object):
 
     def get_updates(self, **kwargs):
         return self.request("getUpdates", "post", kwargs)
+
+    def set_webhook(self, **kwargs):
+        return self.request("setWebhook", "post", kwargs)
+
+    def remove_webhook(self):
+        return self.set_webhook(url = "")
 
     def forward_message(self, pass_api = None, **kwargs):
         return Message.build(self.request("forwardMessage", "post", kwargs)["result"], self.passed_api)
@@ -68,12 +77,8 @@ class BotAPI(object):
     def edit_message_reply_markup(self, pass_api = None, **kwargs):
         return Message.build(self.request("editMessageReplyMarkup", "post", kwargs)["result"], self.passed_api)
 
-    '''def send_photo(self, pass_api = None, **kwargs):
-        if "photo" not in kwargs:
-            raise KeyError("'photo' was not passed to 'send_photo'")
-        file_path = kwargs["photo"]
-        del kwargs["photo"]
-        return Message.build(self.request("sendPhoto", "post", kwargs)["result"], self.passed_api)'''
+    def send_photo(self, pass_api = None, **kwargs):
+        return Message.build(self.request("sendPhoto", "post", kwargs)["result"], self.passed_api)
 
     def download_file(self, file_id, name):
         file_data = self.request("getFile", "post", {"file_id": file_id})["result"]
@@ -105,9 +110,9 @@ class LimitedBotAPI(BotAPI):
         self.mutex = threading.Lock()
         self.chat_signals_added = []
 
-    def request(self, method_name, method = "post", params = {}, file_path = None):
+    def request(self, method_name, method = "post", params = {}):
         self.signaller.wait_for(self.REQUEST_SIGNAL)
-        return BotAPI.request(self, method_name, method, params, file_path)
+        return BotAPI.request(self, method_name, method, params)
 
     def wait_till_chat_signal(self, chat_id):
         self.mutex.acquire()

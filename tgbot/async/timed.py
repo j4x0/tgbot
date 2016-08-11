@@ -51,7 +51,7 @@ class Signaller(threading.Thread):
         dt = 100
         while self.do_run:
             if dt < self.min_interval:
-                sleep(self.min_interval - dt)
+                sleep(self.min_interval)
 
             self.mutex.acquire()
             dt = time() - t

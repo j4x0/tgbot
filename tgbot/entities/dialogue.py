@@ -25,6 +25,16 @@ class Chat(RequestingEntity):
             reply_markup = reply_markup.json() if reply_markup != None else None
         )
 
+    def send_photo(self, photo, caption = None, disable_notification = False, reply_markup = None):
+        if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
+        return self.api.send_photo(
+            chat_id = self.id,
+            photo = photo,
+            caption = caption,
+            disable_notification = disable_notification,
+            reply_markup = reply_markup.json() if reply_markup != None else None
+        )
+
 class User(Entity):
     def __init__(self):
         Entity.__init__(self, {

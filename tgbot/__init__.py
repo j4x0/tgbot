@@ -4,16 +4,16 @@ import threading
 import Queue
 import math
 
-from async.processes import ReceiveProcess
 from async.workers import WorkerPool
 from entities import dialogue
 from telegram import *
+from receivers import WebhookReceiver, APIReceiver
 import events
 import logging
 
 
 class Bot(object):
-    def __init__(self, token, limited_api = True, requests_per_second = 10, messages_to_chat_per_second = 1):
+    def __init__(self, token, limited_api = True, requests_per_second = 10, messages_to_chat_per_second = 1, use_webhook = False, webhook_port = 8443, openssl_command = "openssl"):
         self.token = token
         self._limited_api = limited_api
 
@@ -27,7 +27,11 @@ class Bot(object):
             self.api = AsyncifiedAPI(BotAPI(self.token), self.api_worker_pool)
 
         self.updates = multiprocessing.Queue()
-        self.receiver = ReceiveProcess(token, self.updates)
+
+        if use_webhook:
+            self.receiver = WebhookReceiver(token, self.updates, port = webhook_port, openssl_command = openssl_command)
+        else:
+            self.receiver = APIReceiver(token, self.updates)
 
         self.chats = {}
         self.users = {}
@@ -107,6 +111,9 @@ class Bot(object):
     def start(self):
         logging.info("Bot is starting")
 
+        self.receiver.setup()
+
+        # Start threads and processes
         if self._limited_api:
             self.api.underlying_api().start()
 
