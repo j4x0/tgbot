@@ -1,6 +1,7 @@
 from os import path
 import requests
 import threading
+import io
 
 from entities.dialogue import *
 from entities.files import *
@@ -33,7 +34,7 @@ class BotAPI(object):
         files = {}
         for k, v in params.iteritems():
             if v == None: continue
-            if type(v) == file:
+            if issubclass(type(v), io.IOBase):
                 files[k] = v
             else:
                 payload[k] = v
