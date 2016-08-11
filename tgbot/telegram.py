@@ -34,7 +34,7 @@ class BotAPI(object):
         files = {}
         for k, v in params.iteritems():
             if v == None: continue
-            if issubclass(type(v), io.IOBase):
+            if issubclass(type(v), io.IOBase) or type(v) == file:
                 files[k] = v
             else:
                 payload[k] = v
