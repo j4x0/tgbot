@@ -35,6 +35,60 @@ class Chat(RequestingEntity):
             reply_markup = reply_markup.json() if reply_markup != None else None
         )
 
+    def send_audio(self, audio, duration = None, performer = None, title = None, disable_notification = False, reply_markup = None):
+        if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
+        return self.api.send_audio(
+            chat_id = self.id,
+            audio = audio,
+            duration = duration,
+            performer = performer,
+            title = title,
+            disable_notification = disable_notification,
+            reply_markup = reply_markup.json() if reply_markup != None else None
+        )
+
+    def send_document(self, document, caption = None, disable_notification = False, reply_markup = None):
+        if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
+        return self.api.send_document(
+            chat_id = self.id,
+            document = document,
+            caption = caption,
+            disable_notification = disable_notification,
+            reply_markup = reply_markup.json() if reply_markup != None else None
+        )
+
+    def send_sticker(self, sticker, disable_notification = False, reply_markup = None):
+        if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
+        return self.api.send_sticker(
+            chat_id = self.id,
+            sticker = sticker,
+            disable_notification = disable_notification,
+            reply_markup = reply_markup.json() if reply_markup != None else None
+        )
+
+    def send_video(self, video, duration = None, width = None, height = None, caption = None, disable_notification = False, reply_markup = None):
+        if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
+        return self.api.send_video(
+            chat_id = self.id,
+            video = video,
+            duration = duration,
+            width = width,
+            height = height,
+            caption = caption,
+            disable_notification = disable_notification,
+            reply_markup = reply_markup.json() if reply_markup != None else None
+        )
+
+    def send_voice(self, voice, duration = None, disable_notification = False, reply_markup = None):
+        if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
+        return self.api.send_voice(
+            chat_id = self.id,
+            voice = voice,
+            duration = duration,
+            disable_notification = disable_notification,
+            reply_markup = reply_markup.json() if reply_markup != None else None
+        )
+
 class User(Entity):
     def __init__(self):
         Entity.__init__(self, {

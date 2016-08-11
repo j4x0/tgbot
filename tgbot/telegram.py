@@ -80,6 +80,21 @@ class BotAPI(object):
     def send_photo(self, pass_api = None, **kwargs):
         return Message.build(self.request("sendPhoto", "post", kwargs)["result"], self.passed_api)
 
+    def send_audio(self, pass_api = None, **kwargs):
+        return Message.build(self.request("sendAudio", "post", kwargs)["result"], self.passed_api)
+
+    def send_document(self, pass_api = None, **kwargs):
+        return Message.build(self.request("sendDocument", "post", kwargs)["result"], self.passed_api)
+
+    def send_sticker(self, pass_api = None, **kwargs):
+        return Message.build(self.request("sendSticker", "post", kwargs)["result"], self.passed_api)
+
+    def send_video(self, pass_api = None, **kwargs):
+        return Message.build(self.request("sendVideo", "post", kwargs)["result"], self.passed_api)
+
+    def send_voice(self, pass_api = None, **kwargs):
+        return Message.build(self.request("sendVoice", "post", kwargs)["result"], self.passed_api)
+
     def download_file(self, file_id, name):
         file_data = self.request("getFile", "post", {"file_id": file_id})["result"]
         if "file_path" not in file_data:

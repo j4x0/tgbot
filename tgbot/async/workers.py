@@ -59,7 +59,7 @@ class Worker(threading.Thread):
                 retval = fn(*args, **kwargs)
                 future.finalize(retval)
             except Exception as e:
-                logging.error("Exception inside worker thread:\n" + str(e))
+                logging.error(str(type(e)) + " inside worker thread:\n" + str(e))
                 future.err(e)
 
     def stop(self):
