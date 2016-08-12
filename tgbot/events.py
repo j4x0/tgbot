@@ -19,3 +19,7 @@ class AsyncEvent(object):
 class MessageEvent(AsyncEvent):
     def match(self, pattern, callback):
         self.when(lambda chat, user, message: re.match(pattern, message.text) != None, callback)
+
+class CallbackQueryEvent(AsyncEvent):
+    def datamatch(self, pattern, callback):
+        self.when(lambda user, cq: re.match(pattern, cq.data) != None, callback)

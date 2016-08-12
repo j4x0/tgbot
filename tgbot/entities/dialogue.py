@@ -22,8 +22,7 @@ class Chat(RequestingEntity):
             disable_web_page_review = disable_web_page_review,
             disable_notification = disable_notification,
             reply_to_message = reply_to_message,
-            reply_markup = reply_markup.json() if reply_markup != None else None
-        )
+            reply_markup = reply_markup.json() if reply_markup != None else None)
 
     def send_photo(self, photo, caption = None, disable_notification = False, reply_markup = None):
         if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
@@ -32,8 +31,7 @@ class Chat(RequestingEntity):
             photo = photo,
             caption = caption,
             disable_notification = disable_notification,
-            reply_markup = reply_markup.json() if reply_markup != None else None
-        )
+            reply_markup = reply_markup.json() if reply_markup != None else None)
 
     def send_audio(self, audio, duration = None, performer = None, title = None, disable_notification = False, reply_markup = None):
         if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
@@ -44,8 +42,7 @@ class Chat(RequestingEntity):
             performer = performer,
             title = title,
             disable_notification = disable_notification,
-            reply_markup = reply_markup.json() if reply_markup != None else None
-        )
+            reply_markup = reply_markup.json() if reply_markup != None else None)
 
     def send_document(self, document, caption = None, disable_notification = False, reply_markup = None):
         if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
@@ -54,8 +51,7 @@ class Chat(RequestingEntity):
             document = document,
             caption = caption,
             disable_notification = disable_notification,
-            reply_markup = reply_markup.json() if reply_markup != None else None
-        )
+            reply_markup = reply_markup.json() if reply_markup != None else None)
 
     def send_sticker(self, sticker, disable_notification = False, reply_markup = None):
         if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
@@ -63,8 +59,7 @@ class Chat(RequestingEntity):
             chat_id = self.id,
             sticker = sticker,
             disable_notification = disable_notification,
-            reply_markup = reply_markup.json() if reply_markup != None else None
-        )
+            reply_markup = reply_markup.json() if reply_markup != None else None)
 
     def send_video(self, video, duration = None, width = None, height = None, caption = None, disable_notification = False, reply_markup = None):
         if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
@@ -76,8 +71,7 @@ class Chat(RequestingEntity):
             height = height,
             caption = caption,
             disable_notification = disable_notification,
-            reply_markup = reply_markup.json() if reply_markup != None else None
-        )
+            reply_markup = reply_markup.json() if reply_markup != None else None)
 
     def send_voice(self, voice, duration = None, disable_notification = False, reply_markup = None):
         if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
@@ -86,8 +80,54 @@ class Chat(RequestingEntity):
             voice = voice,
             duration = duration,
             disable_notification = disable_notification,
-            reply_markup = reply_markup.json() if reply_markup != None else None
-        )
+            reply_markup = reply_markup.json() if reply_markup != None else None)
+
+    def send_location(self, longitude, latitude, disable_notification = False, reply_markup = None):
+        if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
+        return self.api.send_location(
+            chat_id = self.id,
+            longitude = longitude,
+            latitude = latitude,
+            disable_notification = disable_notification,
+            reply_markup = reply_markup.json() if reply_markup != None else None)
+
+    def send_venue(self, longitude, latitude, title, address, foursquare_id = None, disable_notification = False, reply_markup = None):
+        if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
+        return self.api.send_venue(
+            chat_id = self.id,
+            longitude = longitude,
+            latitude = latitude,
+            title = title,
+            address = address,
+            foursquare_id = foursquare_id,
+            disable_notification = disable_notification,
+            reply_markup = reply_markup.json() if reply_markup != None else None)
+
+    def send_contact(self, phone_number, first_name, last_name = None, disable_notification = False, reply_markup = None):
+        if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
+        return self.api.send_contact(
+            chat_id = self.id,
+            phone_number = phone_number,
+            first_name = first_name,
+            last_name = last_name,
+            disable_notification = disable_notification,
+            reply_markup = reply_markup.json() if reply_markup != None else None)
+
+    def send_action(self, action):
+        if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
+        return self.api.send_chat_action(chat_id = self.id, action = action)
+
+    def leave(self):
+        if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
+        return self.api.leave_chat(chat_id = self.id)
+
+    def kick(self, user_id):
+        if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
+        return self.api.kick_chat_member(chat_id = self.id, user_id = user_id)
+
+    def unban(Self, user_id):
+        if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
+        return self.api.unban_chat_member(chat_id = self.id, user_id = user_id)
 
 class User(Entity):
     def __init__(self):
@@ -118,7 +158,7 @@ class Message(RequestingEntity):
             "date":                     ("date", 0),
             "forward_date":             ("forward_date", None),
             "edit_date":                ("edit_date", None),
-            "text":                     ("text", None),
+            "text":                     ("text", ""),
             "caption":                  ("caption", None),
             "new_chat_title":           ("new_chat_title", None),
             "delete_chat_photo":        ("delete_chat_photo", False),
@@ -140,8 +180,7 @@ class Message(RequestingEntity):
             chat_id = to_chat_id,
             from_chat_id = self.chat_id,
             disable_notification = disable_notification,
-            message_id = self.id
-        )
+            message_id = self.id)
 
     def edit_text(self, text, parse_mode = None, reply_markup = None):
         if self.api == None or self.id == None:
@@ -151,8 +190,7 @@ class Message(RequestingEntity):
             message_id = self.id,
             text = text,
             parse_mode = parse_mode,
-            reply_markup = reply_markup.json() if reply_markup != None else None
-        ).then(self._update_msg_cb)
+            reply_markup = reply_markup.json() if reply_markup != None else None).then(self._update_msg_cb)
 
     def edit_caption(self, caption, reply_markup = None):
         if self.api == None or self.id == None:
@@ -161,8 +199,7 @@ class Message(RequestingEntity):
             chat_id = self.chat_id,
             message_id = self.id,
             caption = caption,
-            reply_markup = reply_markup.json() if reply_markup != None else None
-        ).then(self._update_msg_cb)
+            reply_markup = reply_markup.json() if reply_markup != None else None).then(self._update_msg_cb)
 
     def edit_reply_markup(self, reply_markup):
         if self.api == None or self.id == None:
@@ -170,8 +207,7 @@ class Message(RequestingEntity):
         return self.api.edit_message_reply_markup(
             chat_id = self.chat_id,
             message_id = self.id,
-            reply_markup = reply_markup.json()
-        )
+            reply_markup = reply_markup.json())
 
     def is_service_message(self):
         return False #TODO

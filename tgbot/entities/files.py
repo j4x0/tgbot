@@ -56,10 +56,10 @@ class Video(FileEntityWithThumb):
             "width":    ("width", None),
             "height":   ("height", None),
             "duration": ("duration", None)
-        })
+        }, api)
 
 class Voice(FileEntity):
     def __init__(self, api):
         FileEntity.__init__(self, {
             "duration": ("duration", None)
-        })
+        }, api)

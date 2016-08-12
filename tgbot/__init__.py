@@ -5,7 +5,7 @@ import Queue
 import math
 
 from async.workers import WorkerPool
-from entities import dialogue
+from entities import dialogue, callback
 from telegram import *
 from receivers import WebhookReceiver, APIReceiver
 import events
@@ -13,7 +13,12 @@ import logging
 
 
 class Bot(object):
-    def __init__(self, token, limited_api = True, requests_per_second = 10, messages_to_chat_per_second = 1, use_webhook = False, webhook_port = 8443, openssl_command = "openssl"):
+    def __init__(
+        self, token,
+        limited_api = True, requests_per_second = 10, messages_to_chat_per_second = 1,
+        use_webhook = False, webhook_port = 8443, openssl_command = "openssl",
+        chat_cls = dialogue.Chat, user_cls = dialogue.User):
+
         self.token = token
         self._limited_api = limited_api
 
@@ -33,6 +38,8 @@ class Bot(object):
         else:
             self.receiver = APIReceiver(token, self.updates)
 
+        self.chat_cls = chat_cls
+        self.user_cls = user_cls
         self.chats = {}
         self.users = {}
 
@@ -48,6 +55,36 @@ class Bot(object):
         self.on_voice = events.AsyncEvent(self.events_worker_pool)
         self.on_location = events.AsyncEvent(self.events_worker_pool)
         self.on_venue = events.AsyncEvent(self.events_worker_pool)
+
+        self.on_callback_query = events.CallbackQueryEvent(self.events_worker_pool)
+
+    def _get_and_update_chat(self, data):
+        chat_data = data["chat"]
+        chat_id = chat_data["id"]
+        if chat_id in self.chats:
+            self.chats[chat_id].update_properties(chat_data)
+        else:
+            self.add_chat(chat_id, chat_data)
+        return self.chats[chat_id]
+
+    def _get_and_update_user(self, data):
+        if "from" not in data:
+            return None
+        user_data = data["from"]
+        user_id = user_data["id"]
+        if user_id in self.users:
+            self.users[user_id].update_properties(user_data)
+        else:
+            self.add_user(user_id, user_data)
+        return self.users[user_id]
+
+    def add_chat(self, chat_id, chat_data = {}):
+        chat_data["id"] = chat_id
+        self.chats[chat_id] = self.chat_cls.build(chat_data, self.api)
+
+    def add_user(self, user_id, user_data = {}):
+        user_data["id"] = user_id
+        self.users[user_id] = self.user_cls.build(user_data)
 
     def process_message(self, chat, user, message):
         if message.is_audio():
@@ -72,32 +109,17 @@ class Bot(object):
             self.on_message.emit(chat, user, message)
 
     def process_update(self, update):
-        if update["message"] != None:
+        if "message" in update:
             message_data = update["message"]
             self.process_message(
-                self.get_chat_from_message_data(message_data),
-                self.get_user_from_message_data(message_data),
-                dialogue.Message.build(message_data, self.api)
-            )
-
-    def get_user_from_message_data(self, message_data):
-        if "from" not in message_data: return None
-        user_data = message_data["from"]
-        id = user_data["id"]
-        if id in self.users:
-            self.users[id].update_properties(user_data)
-            return self.users[id]
-        self.users[id] = dialogue.User.build(user_data)
-        return self.users[id]
-
-    def get_chat_from_message_data(self, message_data):
-        chat_data = message_data["chat"]
-        id = chat_data["id"]
-        if id in self.chats:
-            self.chats[id].update_properties(chat_data)
-            return self.chats[id]
-        self.chats[id] = dialogue.Chat.build(chat_data, self.api)
-        return self.chats[id]
+                self._get_and_update_chat(message_data),
+                self._get_and_update_user(message_data),
+                dialogue.Message.build(message_data, self.api))
+        if "callback_query" in update:
+            callback_query_data = update["callback_query"]
+            self.on_callback_query.emit(
+                self._get_and_update_user(callback_query_data),
+                callback.CallbackQuery.build(callback_query_data, self.api))
 
     def process_updates(self):
         while True:

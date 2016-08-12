@@ -63,11 +63,11 @@ class BotAPI(object):
     def remove_webhook(self):
         return self.set_webhook(url = "")
 
-    def forward_message(self, pass_api = None, **kwargs):
-        return Message.build(self.request("forwardMessage", "post", kwargs)["result"], self.passed_api)
-
     def send_message(self, pass_api = None, **kwargs):
         return Message.build(self.request("sendMessage", "post", kwargs)["result"], self.passed_api)
+
+    def forward_message(self, pass_api = None, **kwargs):
+        return Message.build(self.request("forwardMessage", "post", kwargs)["result"], self.passed_api)
 
     def edit_message_text(self, pass_api = None, **kwargs):
         return Message.build(self.request("editMessageText", "post", kwargs)["result"], self.passed_api)
@@ -95,6 +95,30 @@ class BotAPI(object):
 
     def send_voice(self, pass_api = None, **kwargs):
         return Message.build(self.request("sendVoice", "post", kwargs)["result"], self.passed_api)
+
+    def send_location(self, pass_api = None, **kwargs):
+        return Message.build(self.request("sendLocation", "post", kwargs)["result"], self.passed_api)
+
+    def send_venue(self, pass_api = None, **kwargs):
+        return Message.build(self.request("sendVenue", "post", kwargs)["result"], self.passed_api)
+
+    def send_contact(self, pass_api = None, **kwargs):
+        return Message.build(self.request("sendContact", "post", kwargs)["result"], self.passed_api)
+
+    def send_chat_action(self, pass_api = None, **kwargs):
+        self.request("sendChatAction", "post", kwargs)
+
+    def kick_chat_member(self, pass_api = None, **kwargs):
+        return self.request("kickChatMember", "post", kwargs)["result"]
+
+    def leave_chat(self, pass_api = None, **kwargs):
+        return self.request("leaveChat", "post", kwargs)["result"]
+
+    def unban_chat_member(self, pass_api = None, **kwargs):
+        return self.request("unbanChatMember", "post", kwargs)["result"]
+
+    def answer_callback_query(self, pass_api = None, **kwargs):
+        return self.request("answerCallbackQuery", "post", kwargs)["result"]
 
     def download_file(self, file_id, name):
         file_data = self.request("getFile", "post", {"file_id": file_id})["result"]
@@ -150,6 +174,60 @@ class LimitedBotAPI(BotAPI):
         self.wait_till_chat_signal(kwargs["chat_id"])
         return BotAPI.forward_message(self, pass_api, **kwargs)
 
+    def send_photo(self, pass_api = None, **kwargs):
+        if "chat_id" not in kwargs:
+            raise KeyError("'chat_id' was not passed to 'send_photo'")
+        self.wait_till_chat_signal(kwargs["chat_id"])
+        return BotAPI.send_photo(self, pass_api, **kwargs)
+
+    def send_audio(self, pass_api = None, **kwargs):
+        if "chat_id" not in kwargs:
+            raise KeyError("'chat_id' was not passed to 'send_audio'")
+        self.wait_till_chat_signal(kwargs["chat_id"])
+        return BotAPI.send_audio(self, pass_api, **kwargs)
+
+    def send_document(self, pass_api = None, **kwargs):
+        if "chat_id" not in kwargs:
+            raise KeyError("'chat_id' was not passed to 'send_document'")
+        self.wait_till_chat_signal(kwargs["chat_id"])
+        return BotAPI.send_document(self, pass_api, **kwargs)
+
+    def send_sticker(self, pass_api = None, **kwargs):
+        if "chat_id" not in kwargs:
+            raise KeyError("'chat_id' was not passed to 'send_sticker'")
+        self.wait_till_chat_signal(kwargs["chat_id"])
+        return BotAPI.send_sticker(self, pass_api, **kwargs)
+
+    def send_video(self, pass_api = None, **kwargs):
+        if "chat_id" not in kwargs:
+            raise KeyError("'chat_id' was not passed to 'send_video'")
+        self.wait_till_chat_signal(kwargs["chat_id"])
+        return BotAPI.send_video(self, pass_api, **kwargs)
+
+    def send_voice(self, pass_api = None, **kwargs):
+        if "chat_id" not in kwargs:
+            raise KeyError("'chat_id' was not passed to 'send_voice'")
+        self.wait_till_chat_signal(kwargs["chat_id"])
+        return BotAPI.send_voice(self, pass_api, **kwargs)
+
+    def send_location(self, pass_api = None, **kwargs):
+        if "chat_id" not in kwargs:
+            raise KeyError("'chat_id' was not passed to 'send_location'")
+        self.wait_till_chat_signal(kwargs["chat_id"])
+        return BotAPI.send_location(self, pass_api, **kwargs)
+
+    def send_venue(self, pass_api = None, **kwargs):
+        if "chat_id" not in kwargs:
+            raise KeyError("'chat_id' was not passed to 'send_venue'")
+        self.wait_till_chat_signal(kwargs["chat_id"])
+        return BotAPI.send_venue(self, pass_api, **kwargs)
+
+    def send_contact(self, pass_api = None, **kwargs):
+        if "chat_id" not in kwargs:
+            raise KeyError("'chat_id' was not passed to 'send_contact'")
+        self.wait_till_chat_signal(kwargs["chat_id"])
+        return BotAPI.send_contact(self, pass_api, **kwargs)
+
     def start(self):
         self.signaller.start()
 
@@ -167,5 +245,6 @@ class AsyncifiedAPI(object):
         return self._api
 
     def __getattr__(self, key):
-        if not hasattr(self._api, key): raise NameError()
+        if not hasattr(self._api, key):
+            raise NameError("'{0}' has no such attribute '{1}'".format(self._api.__class__.__name__, key))
         return self.worker_pool.asyncify(getattr(self._api, key))
