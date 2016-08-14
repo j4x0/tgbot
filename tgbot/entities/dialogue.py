@@ -21,7 +21,7 @@ class Chat(RequestingEntity):
             parse_mode = parse_mode,
             disable_web_page_review = disable_web_page_review,
             disable_notification = disable_notification,
-            reply_to_message = reply_to_message,
+            reply_to_message_id = reply_to_message.id if reply_to_message != None else None,
             reply_markup = reply_markup.json() if reply_markup != None else None)
 
     def send_photo(self, photo, caption = None, disable_notification = False, reply_markup = None):
@@ -121,13 +121,13 @@ class Chat(RequestingEntity):
         if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
         return self.api.leave_chat(chat_id = self.id)
 
-    def kick(self, user_id):
+    def kick(self, user):
         if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
-        return self.api.kick_chat_member(chat_id = self.id, user_id = user_id)
+        return self.api.kick_chat_member(chat_id = self.id, user_id = user.id)
 
-    def unban(Self, user_id):
+    def unban(Self, user):
         if self.id == None or self.api == None: raise Exception("Can't send API requests with this chat instance")
-        return self.api.unban_chat_member(chat_id = self.id, user_id = user_id)
+        return self.api.unban_chat_member(chat_id = self.id, user_id = user.id)
 
 class User(Entity):
     def __init__(self):
@@ -173,14 +173,26 @@ class Message(RequestingEntity):
         self.text = message.text
         self.caption = message.caption
 
-    def forward(self, to_chat_id, disable_notification = False):
+    def forward(self, to_chat, disable_notification = False):
         if self.api == None or self.id == None:
             raise Exception("This message is not sent")
         return self.api.forward_message(
-            chat_id = to_chat_id,
+            chat_id = to_chat.id,
             from_chat_id = self.chat_id,
             disable_notification = disable_notification,
             message_id = self.id)
+
+    def reply(self, text = "", parse_mode = None, disable_web_page_review = False, disable_notification = False, reply_markup = None):
+        if self.api == None or self.id == None:
+            raise Exception("This message is not sent")
+        return self.api.send_message(
+            chat_id = self.chat_id,
+            text = text,
+            parse_mode = parse_mode,
+            disable_web_page_review = disable_web_page_review,
+            disable_notification = disable_notification,
+            reply_to_message_id = self.id,
+            reply_markup = reply_markup.json() if reply_markup != None else None)
 
     def edit_text(self, text, parse_mode = None, reply_markup = None):
         if self.api == None or self.id == None:
