@@ -30,8 +30,10 @@ class Storage(object):
         raise NotImplementedError()
 
 class PersistentBot(Bot):
-    def __init__(self, storage, *args, **kwargs):
-        Bot.__init__(self, user_cls = PersistentUser, chat_cls = PersistentChat, *args, **kwargs)
+    def __init__(self, storage, *args, **overwrite_kwargs):
+        kwargs = {"user_cls": PersistentUser, "chat_cls": PersistentChat}
+        kwargs.update(overwrite_kwargs)
+        Bot.__init__(self, *args, **kwargs)
         self.storage = storage
 
     def save(self):
