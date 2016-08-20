@@ -1,14 +1,13 @@
 import multiprocessing
 import signal
-
+import requests
 import ssl
 import json
 import BaseHTTPServer
 import subprocess
 import os
 import sys
-
-import requests
+import time
 
 import logging
 from telegram import BotAPI
@@ -45,13 +44,12 @@ class APIReceiver(ReceiveProcess):
 
     def run(self):
         signal.signal(signal.SIGINT, signal.SIG_IGN) # Make sure KeyboardInterrupts are not sent to this process
-        try:
-            while True:
+        while True:
+            try:
                 self.fetch_updates()
-        except Exception as e:
-            logging.error("An exception occurred inside recv process:\n" + str(e))
-        finally:
-            self.q.put(None)
+            except Exception as e:
+                logging.error("An exception occurred inside recv process:\n" + str(e))
+                time.sleep(120) # Prevent making unnecessary fetches when Telegram API is down
 
 class WebhookRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     def do_GET(self):
