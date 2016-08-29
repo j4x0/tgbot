@@ -260,7 +260,7 @@ class Message(RequestingEntity):
         self.user_id = values["from"]["id"] if "from" in values else None
 
         self.forward_from = User.build(values["forward_from"]) if "forward_from" in values else None
-        self.forward_from_chat = Chat.buid(values["forward_from_chat"]) if "forward_from_chat" in values else None
+        self.forward_from_chat = Chat.build(values["forward_from_chat"]) if "forward_from_chat" in values else None
         self.reply_to_message = Message.build(values["reply_to_message"], self.api) if "reply_to_message" in values else None
         self.entities = [MessageEntity.build(me_data) for me_data in values["entities"]] if "entities" in values else []
 
